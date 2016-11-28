@@ -15,21 +15,31 @@ global $count;
 $count = 0;
 require_once('simple_html_dom.php');
 require_once('lib/Ouath.php');
+// @ini_set('zlib.output_compression', 0);
+// @ini_set('implicit_flush', 1);
+// @ob_end_clean();
+
+set_time_limit(0);
+create_db_connection();
 
 if(isset($_POST['submit_button']))
 {
     clear_prev_results();
     $CONSUMER_KEY       = 'hDdWzPS6tV8OJsYyFXnXZg';
     $CONSUMER_SECRET    = 'aU-rZXP3uHY0k_COucfngAKpQRg';
-    $TOKEN              = 'OTWQ_o6O_MkSZb2u4nJoFhHPaFQh0Jip';
-    $TOKEN_SECRET       = 'cekX4r59aDQNOY93AoyaNB41Rqk';
+    $TOKEN              = 'TWhpdx9VzSlbMzEL_cllJ8ufTz5SfTJ0';
+    $TOKEN_SECRET       = 'FpO4W7J8RT4VOmiHIYhZOBoeY_8';
     $API_HOST           = 'api.yelp.com';
     // $SEARCH_LIMIT       = 6;
     $SEARCH_PATH        = '/v2/search/';
     $BUSINESS_PATH      = '/v2/business/';
     $url                = $_REQUEST['query'];
+    set_option('url', base64_encode($url));
     $neighbourhoods     = get_neighbourhoods($url);
+    // dying($neighbourhoods);
     sleep(1);
+    echo "Total no of Neighbourhoods".count($neighbourhoods);
+    flush();
     $parts              = parse_url($url);
     parse_str($parts['query'], $query);
     $DEFAULT_TERM       = $query['find_desc'];
@@ -46,16 +56,58 @@ if(isset($_POST['submit_button']))
         $new_location =  $neighbourhood.' ,'.$DEFAULT_LOCATION;
         sleep(3);
         $loop_limit = calculate_total_calls($DEFAULT_TERM, $new_location);
-        // echo "Loop Limit: ".$loop_limit."<br />";
+        echo "Loop Loopimit: ".$loop_limit."<br />";
         flush();
         loop_api_calls($loop_limit, $DEFAULT_TERM, $new_location);
     }
     // require_once 'download.php';
+} else if(isset($_POST['resume_button'])){
+    // clear_prev_results();
+    $CONSUMER_KEY       = 'hDdWzPS6tV8OJsYyFXnXZg';
+    $CONSUMER_SECRET    = 'aU-rZXP3uHY0k_COucfngAKpQRg';
+    $TOKEN              = 'TWhpdx9VzSlbMzEL_cllJ8ufTz5SfTJ0';
+    $TOKEN_SECRET       = 'FpO4W7J8RT4VOmiHIYhZOBoeY_8';
+    $API_HOST           = 'api.yelp.com';
+    // $SEARCH_LIMIT       = 6;
+    $SEARCH_PATH        = '/v2/search/';
+    $BUSINESS_PATH      = '/v2/business/';
+    $url                = base64_decode(get_option('url'));
+    $neighbourhoods     = get_neighbourhoods($url);
+    // dying($neighbourhoods);
+    sleep(1);
+    echo "Total no of Neighbourhoods".count($neighbourhoods);
+    flush();
+    $parts              = parse_url($url);
+    parse_str($parts['query'], $query);
+    $DEFAULT_TERM       = $query['find_desc'];
+    $DEFAULT_LOCATION   = $query['find_loc'];
+    $loop = 0;
+    // write_headers_csv_file();
+   global $prev_count ;
+   $prev_count = get_option('current_count');
+    foreach ($neighbourhoods as $neighbourhood) {
+        // if ($loop++ > 1) {
+        //     echo "exit";
+        //     break;
+        // }
+        echo "Neighbourhood :".$neighbourhood."<br />";
+        $new_location = '';
+        $new_location =  $neighbourhood.' ,'.$DEFAULT_LOCATION;
+        sleep(3);
+        $loop_limit = calculate_total_calls($DEFAULT_TERM, $new_location);
+        echo "Loop Loopimit: ".$loop_limit."<br />";
+        flush();
+        loop_api_calls($loop_limit, $DEFAULT_TERM, $new_location);
+    }   
 }
 
 function clear_prev_results(){
     $file = getcwd().'/results.csv';
     $fp = fopen( $file ,'w');
+}
+
+function can_resume(){
+    
 }
 
 function get_neighbourhoods($query){
@@ -69,6 +121,7 @@ function get_neighbourhoods($query){
     $neighbourhoods = array();
     foreach($html->find('.place input') as $e){
         $result = explode('::', $e->value);
+        // dying($result);
         if (empty($result[1])) {
             $result2 = explode(':', $e->value);
             $neighbourhoods[] = $result2[1];
@@ -160,12 +213,22 @@ function loop_api_calls($loop_limit, $term, $location){
     if ($loop_limit > 50) {
        $loop_limit = 50;
     }
-    // die($loop_limit);
-    // $loop_limit = 5;
-     //$loop_limit = 1;
+    
+        global $prev_count, $prev_count_extra;
     for ($i=0; $i <$loop_limit ; $i++) {
+        if (isset($prev_count) && !empty($prev_count)) {
+            $prev_count = $prev_count-20;
+            if ($prev_count >= 20) {
+                continue;
+            } else if ($prev_count < 20 && $prev_count > 0) {
+                $prev_count_extra = $prev_count;
+            } else if ($prev_count <= 0) {
+                continue;
+            }
+            
+        }
         $response = json_decode(search(urldecode($term), urldecode($location), $offset),true);
-       $offset += 20;
+        $offset += 20;
         $result = loop_results($response['businesses']);
         // if ($result === false) {
         //     return false;
@@ -179,11 +242,21 @@ function loop_results($results){
     global $count;
     $parent_array = array();
     $limit = 0;
+
+    global $prev_count_extra;
+
     foreach ($results as $result) {
+        if (isset($prev_count_extra) && !empty($prev_count_extra)) {
+            $prev_count_extra = $prev_count_extra - 1;
+            if ($prev_count_extra <= 0) {
+                continue;
+            }
+        }
+        set_option('current_count', ++$count);
         $child_array = array();
         $website     = '';
         $email       = '';
-        echo 'No of result: '.++$count."<br />";
+        echo 'No of result: '.$count."<br />";
     //    echo "S.No:".++$limit."</br>";
         // if ($limit > 5) {
         //     return false;
@@ -417,6 +490,8 @@ function write_headers_csv_file(){
     }
 
     fclose($fp);
+    echo "Headers written successfully";
+        flush();
 
 }
 
@@ -433,7 +508,7 @@ function doCall($URL) //Needs a timeout handler
     curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/43.0.2357.124 Safari/537.36');
     curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, ($SSLVerify === true) ? 2 : false );
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, $SSLVerify);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
     curl_setopt($ch, CURLOPT_HEADER, true);
     @curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
     $rawResponse      = curl_exec($ch);
@@ -445,8 +520,62 @@ function doCall($URL) //Needs a timeout handler
     return $rawResponse;
 }
 
-function dying(){
+function dying($data){
     echo "<pre>";
-    print_r(error_get_last());
+    print_r($data);
     echo "</pre>";
+}
+
+function create_db_connection(){
+    global $conn;
+    $servername = "localhost";
+    $username = "root";
+    $password = "root";
+    $dbname = "yelp_crawler";
+
+    // Create connection
+    $conn = new mysqli($servername, $username, $password, $dbname);
+    // Check connection
+    if ($conn->connect_error) {
+        die("Connection failed: " . $conn->connect_error);
+    } 
+
+ 
+}
+
+function set_option($option_name, $option_value){
+    global $conn;
+    $sql = "SELECT * FROM yelp_options WHERE option_name='".$option_name."'";
+    $result = $conn->query($sql);
+    if ($result->num_rows > 0) {
+        $sql = "UPDATE yelp_options SET option_value='".$option_value."' WHERE option_name='".$option_name."'";
+        if ($conn->query($sql) === TRUE) {
+            return true;
+        } 
+    } else {
+        $sql = "INSERT INTO yelp_options (option_name, option_value)
+        VALUES ('".$option_name."', '".$option_value."')";
+        if ($conn->query($sql) === TRUE) {
+            return true;
+        }    
+
+        
+    }
+    
+}
+
+function get_option($option_name){
+    global $conn;
+    $sql = "SELECT * FROM yelp_options WHERE option_name='".$option_name."'";
+    $result = $conn->query($sql);
+
+    if ($result->num_rows > 0) {
+        // output data of each row
+        while($row = $result->fetch_assoc()) {
+            // echo "id: " . $row["id"]. " - Name: " . $row["firstname"]. " " . $row["lastname"]. "<br>";
+            return $row['option_value'];
+        }
+    } else {
+        return false;
+    }
 }
