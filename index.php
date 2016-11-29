@@ -20,6 +20,10 @@ set_time_limit(0);
     <?php echo "Last query : ".base64_decode(get_option('url'))."<br><br>";?>
     <?php echo "Last result count : ".get_option('current_count')."<br><br>";?>
     <input type="submit" class="btn btn-primary" value="Resume last query" name="resume_button" />
+    <br>
+    <br>
+    <hr>
+    <input type="submit" class="btn btn-primary" value="reset last query" name="reset_button" />
 </form>
 <?php
 global $count;
@@ -31,7 +35,10 @@ require_once('lib/Ouath.php');
 // @ob_end_clean();
 
 set_time_limit(0);
-
+// echo "<pre>";
+// print_r($_POST);
+// echo "</pre>";
+// die();
 if(isset($_POST['submit_button']))
 {
     clear_prev_results();
@@ -51,6 +58,9 @@ if(isset($_POST['submit_button']))
     echo "Total no of Neighbourhoods".count($neighbourhoods);
     flush();
     $parts              = parse_url($url);
+    echo "<pre>";
+    print_r($parts);
+    echo "</pre>";
     parse_str($parts['query'], $query);
     $DEFAULT_TERM       = $query['find_desc'];
     $DEFAULT_LOCATION   = $query['find_loc'];
@@ -84,6 +94,7 @@ if(isset($_POST['submit_button']))
     $url                = base64_decode(get_option('url'));
     $neighbourhoods     = get_neighbourhoods($url);
     // dying($neighbourhoods);
+    echo "comes to resume";
     sleep(1);
     echo "Total no of Neighbourhoods".count($neighbourhoods);
     flush();
@@ -109,12 +120,15 @@ if(isset($_POST['submit_button']))
         flush();
         loop_api_calls($loop_limit, $DEFAULT_TERM, $new_location);
     }   
+}  else if(isset($_POST['reset_button'])){
+set_option('url', false);
+set_option('current_count', false);
 }
 
 function fecho($string) {
- echo $string;
+ echo $string."<br>";
  flush();
- ob_flush();
+ // ob_flush();
 }
 
 function clear_prev_results(){
@@ -213,7 +227,7 @@ function search($term, $location, $offset) {
     $url_params['offset'] = $offset;
     // $url_params['l'] = 'p:DC:Washington::Hillcrest';
     $search_path = $GLOBALS['SEARCH_PATH'] . "?" . http_build_query($url_params);
-    // echo $search_path."<break>";
+    echo $search_path."<br>";
     // return false;
     return request($GLOBALS['API_HOST'], $search_path);
 }
@@ -232,19 +246,38 @@ function loop_api_calls($loop_limit, $term, $location){
     
         global $prev_count, $prev_count_extra;
     for ($i=0; $i <$loop_limit ; $i++) {
+        $offset += 20;
+
         if (isset($prev_count) && !empty($prev_count)) {
+            fecho("prev_count :".$prev_count."<br>");
+            echo "<br>";
             $prev_count = $prev_count-20;
+            fecho("prev_count :1".$prev_count."<br>");
+            echo "<br>";
+
             if ($prev_count >= 20) {
+            fecho("continue : 1 <br>");
+            echo "<br>";
+
                 continue;
             } else if ($prev_count < 20 && $prev_count > 0) {
+
+            fecho("continue : 2 <br>");
+            echo "<br>";
+
+
                 $prev_count_extra = $prev_count;
-            } else if ($prev_count <= 0) {
                 continue;
+            } else if ($prev_count <= 0) {
+            fecho("continue : 3 <br>");
+            echo "<br>";
+
+                // continue;
             }
             
         }
+        echo "offset :".$offset."<br>"; 
         $response = json_decode(search(urldecode($term), urldecode($location), $offset),true);
-        $offset += 20;
         $result = loop_results($response['businesses']);
         // if ($result === false) {
         //     return false;
@@ -550,7 +583,7 @@ function create_db_connection(){
     global $conn;
     $servername = "localhost";
     $username = "root";
-    $password = "root";
+    $password = "behappy";
     $dbname = "yelp_crawler";
 
     // Create connection
