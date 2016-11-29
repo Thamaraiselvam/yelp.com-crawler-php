@@ -1,6 +1,11 @@
 <?php
 ini_set("display_errors", 1);
-set_time_limit(0); ?>
+create_db_connection();
+@ini_set('zlib.output_compression',0);
+@ini_set('implicit_flush',1);
+@ob_end_clean();
+set_time_limit(0);
+?>
 
 <head>
     <link rel="stylesheet" type="text/css" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
@@ -9,6 +14,12 @@ set_time_limit(0); ?>
     <input class="form-control" type="text" placeholder="Paste yelp.com search link" style="width: 30%;left: 35%;position: relative;" name="query" />
     <br>
     <input type="submit" class="btn btn-primary" value="Download results" name="submit_button" />
+    <br>
+    <br>
+    <hr>
+    <?php echo "Last query : ".base64_decode(get_option('url'))."<br><br>";?>
+    <?php echo "Last result count : ".get_option('current_count')."<br><br>";?>
+    <input type="submit" class="btn btn-primary" value="Resume last query" name="resume_button" />
 </form>
 <?php
 global $count;
@@ -20,7 +31,6 @@ require_once('lib/Ouath.php');
 // @ob_end_clean();
 
 set_time_limit(0);
-create_db_connection();
 
 if(isset($_POST['submit_button']))
 {
@@ -90,15 +100,21 @@ if(isset($_POST['submit_button']))
         //     echo "exit";
         //     break;
         // }
-        echo "Neighbourhood :".$neighbourhood."<br />";
+        fecho("Neighbourhood :".$neighbourhood."<br />");
         $new_location = '';
         $new_location =  $neighbourhood.' ,'.$DEFAULT_LOCATION;
         sleep(3);
         $loop_limit = calculate_total_calls($DEFAULT_TERM, $new_location);
-        echo "Loop Loopimit: ".$loop_limit."<br />";
+        fecho("Loop Loopimit: ".$loop_limit."<br />");
         flush();
         loop_api_calls($loop_limit, $DEFAULT_TERM, $new_location);
     }   
+}
+
+function fecho($string) {
+ echo $string;
+ flush();
+ ob_flush();
 }
 
 function clear_prev_results(){
@@ -243,14 +259,18 @@ function loop_results($results){
     $parent_array = array();
     $limit = 0;
 
-    global $prev_count_extra;
+    global $prev_count_extra, $prev_count;
 
     foreach ($results as $result) {
         if (isset($prev_count_extra) && !empty($prev_count_extra)) {
             $prev_count_extra = $prev_count_extra - 1;
+            $prev_count = $prev_count_extra;
             if ($prev_count_extra <= 0) {
                 continue;
             }
+        }
+        if (!empty(get_option('current_count'))) {
+            $count = get_option('current_count');    
         }
         set_option('current_count', ++$count);
         $child_array = array();
