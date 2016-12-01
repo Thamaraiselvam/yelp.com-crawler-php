@@ -17,6 +17,9 @@ set_time_limit(0);
     <br>
     <br>
     <hr>
+    <input class="form-control" type="number" placeholder="Enter custom resume count" style="width: 30%;left: 35%;position: relative;" name="resume_count" />
+    <br>
+    <?php echo "Note: leave above textarea blank  to cotinue from last pause : <br><br>";?>
     <?php echo "Last query : ".base64_decode(get_option('url'))."<br><br>";?>
     <?php echo "Last result count : ".get_option('current_count')."<br><br>";?>
     <input type="submit" class="btn btn-primary" value="Resume last query" name="resume_button" />
@@ -94,9 +97,12 @@ if(isset($_POST['submit_button']))
     $url                = base64_decode(get_option('url'));
     $neighbourhoods     = get_neighbourhoods($url);
     // dying($neighbourhoods);
-    echo "comes to resume";
+    echo "Resuming...<br>";
+    if (isset($_POST['resume_count']) && !empty($_POST['resume_count'])) {
+        set_option('current_count', $_POST['resume_count']);
+    }
     sleep(1);
-    echo "Total no of Neighbourhoods".count($neighbourhoods);
+    echo "Total no of Neighbourhoods".count($neighbourhoods)."<br>";
     flush();
     $parts              = parse_url($url);
     parse_str($parts['query'], $query);
@@ -116,7 +122,7 @@ if(isset($_POST['submit_button']))
         $new_location =  $neighbourhood.' ,'.$DEFAULT_LOCATION;
         sleep(3);
         $loop_limit = calculate_total_calls($DEFAULT_TERM, $new_location);
-        fecho("Loop Loopimit: ".$loop_limit."<br />");
+        // fecho("Loop Limit: ".$loop_limit."<br />");
         flush();
         loop_api_calls($loop_limit, $DEFAULT_TERM, $new_location);
     }   
@@ -227,7 +233,7 @@ function search($term, $location, $offset) {
     $url_params['offset'] = $offset;
     // $url_params['l'] = 'p:DC:Washington::Hillcrest';
     $search_path = $GLOBALS['SEARCH_PATH'] . "?" . http_build_query($url_params);
-    echo $search_path."<br>";
+    // echo $search_path."<br>";
     // return false;
     return request($GLOBALS['API_HOST'], $search_path);
 }
@@ -249,34 +255,34 @@ function loop_api_calls($loop_limit, $term, $location){
         $offset += 20;
 
         if (isset($prev_count) && !empty($prev_count)) {
-            fecho("prev_count :".$prev_count."<br>");
-            echo "<br>";
+            // fecho("prev_count :".$prev_count."<br>");
+            // echo "<br>";
             $prev_count = $prev_count-20;
-            fecho("prev_count :1".$prev_count."<br>");
-            echo "<br>";
+            // fecho("prev_count :1".$prev_count."<br>");
+            // echo "<br>";
 
             if ($prev_count >= 20) {
-            fecho("continue : 1 <br>");
-            echo "<br>";
+            // fecho("continue : 1 <br>");
+            // echo "<br>";
 
                 continue;
             } else if ($prev_count < 20 && $prev_count > 0) {
 
-            fecho("continue : 2 <br>");
-            echo "<br>";
+            // fecho("continue : 2 <br>");
+            // echo "<br>";
 
 
                 $prev_count_extra = $prev_count;
                 continue;
             } else if ($prev_count <= 0) {
-            fecho("continue : 3 <br>");
-            echo "<br>";
+            // fecho("continue : 3 <br>");
+            // echo "<br>";
 
                 // continue;
             }
             
         }
-        echo "offset :".$offset."<br>"; 
+        // echo "offset :".$offset."<br>"; 
         $response = json_decode(search(urldecode($term), urldecode($location), $offset),true);
         $result = loop_results($response['businesses']);
         // if ($result === false) {
