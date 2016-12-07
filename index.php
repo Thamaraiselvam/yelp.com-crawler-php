@@ -253,7 +253,9 @@ function loop_api_calls($loop_limit, $term, $location){
         global $prev_count, $prev_count_extra;
     for ($i=0; $i <$loop_limit ; $i++) {
         $offset += 20;
-
+        if($offset >= 1000){
+            continue;
+        }
         if (isset($prev_count) && !empty($prev_count)) {
             // fecho("prev_count :".$prev_count."<br>");
             // echo "<br>";
@@ -589,7 +591,7 @@ function create_db_connection(){
     global $conn;
     $servername = "localhost";
     $username = "root";
-    $password = "behappy";
+    $password = "";
     $dbname = "yelp_crawler";
 
     // Create connection
